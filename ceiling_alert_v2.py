@@ -397,7 +397,7 @@ def main():
     ok = send(build_summary(results))
     print("サマリー通知: " + ("✅" if ok else "❌"))
 
-    for r in [x for x in results if x["score"] >= ALERT_SCORE]:
+    for r in sorted(results, key=lambda x: -x["score"])[:5]:
         ok = send(build_detail(r))
         print("詳細 " + r["ticker"] + ": " + ("✅" if ok else "❌"))
 
