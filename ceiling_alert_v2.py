@@ -245,29 +245,55 @@ def sig_dot(score, na):
 
 
 def build_summary(results):
-    danger  = [r for r in results if r["score"]>=ALERT_SCORE]
-    caution = [r for r in results if CAUTION_SCORE<=r["score"]<ALERT_SCORE]
+    danger  = [r for r in results if r["score"] >= ALERT_SCORE]
+    caution = [r for r in results if CAUTION_SCORE <= r["score"] < ALERT_SCORE]
+    watch   = [r for r in results if 10 <= r["score"] < CAUTION_SCORE]
     lines   = []
+
     if danger:
-        lines.append(f"**🚨 天井危険圏 {ALERT_SCORE}%以上 — {len(danger)}銘柄**")
-        for r in sorted(danger,key=lambda x:-x["score"]):
+        lines.append(f"**🚨 危険圏 {ALERT_SCORE}%以上**")
+        for r in sorted(danger, key=lambda x: -x["score"]):
             lines.append(
-                f"`{r['ticker']:<12}` {score_bar(r['score'])}\n"
+                f"`{r['ticker']:<12}` {score_bar(r['score'])}
+"
                 f"{'':14}{tf_signals(r['signals'],r)}  {tf_coverage(r['status'])}"
             )
     if caution:
-        lines.append(f"\n**⚠️  注意圏 — {len(caution)}銘柄**")
-        for r in sorted(caution,key=lambda x:-x["score"]):
+        lines.append(f"
+**⚠️  注意圏 {CAUTION_SCORE}〜{ALERT_SCORE}%**")
+        for r in sorted(caution, key=lambda x: -x["score"]):
             lines.append(f"`{r['ticker']:<12}` {score_bar(r['score'])}  {tf_signals(r['signals'],r)}")
-    if not danger and not caution:
-        lines.append("天井シグナルに達している銘柄はありません ✅")
-    partial = [r for r in results if any(s!="ok" for s in r["status"].values())]
+    if watch:
+        lines.append(f"
+**👀 監視圏 10〜{CAUTION_SCORE}%**")
+        for r in sorted(watch, key=lambda x: -x["score"]):
+            lines.append(f"`{r['ticker']:<12}` {score_bar(r['score'])}")
+
+    lines.append("
+**📊 全銘柄スコアランキング（上位15）**")
+    top15 = sorted(results, key=lambda x: -x["score"])[:15]
+    for r in top15:
+        lines.append(f"`{r['ticker']:<12}` {score_bar(r['score'])}  ${r['price']:.2f}")
+
+    if not danger and not caution and not watch:
+        lines.insert(0, "天井シグナルなし ✅
+")
+
+    partial = [r for r in results if any(s != "ok" for s in r["status"].values())]
     if partial:
         names = ", ".join(r["ticker"] for r in partial[:8])
-        lines.append(f"\n⚠️ 一部足が取得不能: {names}{'...' if len(partial)>8 else ''}")
-    color = 0xFF2222 if danger else (0xFF8800 if caution else 0x00CC66)
-    return {"embeds":[{"title":f"🔍 天井チェック {len(results)}銘柄 — {datetime.now():%m/%d %H:%M}",
-                       "description":"\n".join(lines)[:4000],"color":color}]}
+        lines.append(f"
+⚠️ 一部足取得不能: {names}")
+
+    color = 0xFF2222 if danger else (0xFF8800 if caution else 0x3399FF)
+    return {
+        "embeds": [{
+            "title": f"🔍 天井チェック {len(results)}銘柄 — {datetime.now():%m/%d %H:%M}",
+            "description": "
+".join(lines)[:4000],
+            "color": color,
+        }]
+    }
 
 
 def build_detail(r):
