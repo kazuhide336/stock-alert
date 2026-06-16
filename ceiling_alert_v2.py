@@ -93,18 +93,31 @@ def fetch_timeframes(ticker):
             data[tf], status[tf] = None, "エラー"
     return data, status
 
-
 def calc(df, tf):
     df = df.copy()
     close  = df["Close"].squeeze()
     volume = df["Volume"].squeeze()
-    df["ema_long"]  = ta.ema(close, length=EMA_LONG[tf])
-    df["rsi"]       = ta.rsi(close, length=14)
-    m               = ta.macd(close, fast=12, slow=26, signal=9)
-    df["macd_hist"] = m["MACDh_12_26_9"]
-    b               = ta.bbands(close, length=BB_PERIOD, std=BB_SIGMA)
-    df["bb_upper"]  = b["BBU_" + str(BB_PERIOD) + "_" + str(BB_SIGMA)]
-    df["vol_ma20"]  = volume.rolling(20).mean()
+
+    df["ema_long"] = ta.ema(close, length=EMA_LONG[tf])
+    df["rsi"]      = ta.rsi(close, length=14)
+
+    m = ta.macd(close, fast=12, slow=26, signal=9)
+    if m is None:
+        raise ValueError("MACD計算失敗")
+    macd_h_col = next((c for c in m.columns if "MACDh" in c), None)
+    if macd_h_col is None:
+        raise ValueError(f"MACDh列なし: {list(m.columns)}")
+    df["macd_hist"] = m[macd_h_col]
+
+    b = ta.bbands(close, length=BB_PERIOD, std=BB_SIGMA)
+    if b is None:
+        raise ValueError("BB計算失敗")
+    bb_u_col = next((c for c in b.columns if c.startswith("BBU_")), None)
+    if bb_u_col is None:
+        raise ValueError(f"BBU列なし: {list(b.columns)}")
+    df["bb_upper"] = b[bb_u_col]
+
+    df["vol_ma20"] = volume.rolling(20).mean()
     return df.dropna()
 
 
@@ -201,7 +214,8 @@ def evaluate(ticker, tf_data, tf_status):
     for tf, df in tf_data.items():
         try:
             calc_data[tf] = calc(df, tf) if df is not None else None
-        except Exception:
+        except Exception as e:
+            print(f"  calc失敗 {tf}: {e}")
             calc_data[tf] = None
 
     signals = []
