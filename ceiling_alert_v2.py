@@ -120,9 +120,9 @@ def calc(df, tf):
     close  = df["Close"].squeeze()
     volume = df["Volume"].squeeze()
 
-    df["ema_long"] = ta.ema(close, length=EMA_LONG[tf])
-    df["rsi"]      = ta.rsi(close, length=14)
-
+    df["trading_value"] = close * volume        # ← 追加
+    df["ema_long"]  = ta.ema(close, length=EMA_LONG[tf])
+    df["rsi"]       = ta.rsi(close, length=14)
     m = ta.macd(close, fast=12, slow=26, signal=9)
     if m is None:
         raise ValueError("MACD計算失敗")
@@ -130,16 +130,14 @@ def calc(df, tf):
     if macd_h_col is None:
         raise ValueError(f"MACDh列なし: {list(m.columns)}")
     df["macd_hist"] = m[macd_h_col]
-
     b = ta.bbands(close, length=BB_PERIOD, std=BB_SIGMA)
     if b is None:
         raise ValueError("BB計算失敗")
     bb_u_col = next((c for c in b.columns if c.startswith("BBU_")), None)
     if bb_u_col is None:
         raise ValueError(f"BBU列なし: {list(b.columns)}")
-    df["bb_upper"] = b[bb_u_col]
-
-    df["vol_ma20"] = volume.rolling(20).mean()
+    df["bb_upper"]  = b[bb_u_col]
+    df["tv_ma20"]   = df["trading_value"].rolling(20).mean()  # ← vol_ma20から変更
     return df.dropna()
 
 
@@ -179,16 +177,17 @@ def check_rsi_div(df, tf):
 
 
 def check_vol_div(df, tf):
-    r = two_peaks(df, "Volume", tf)
+    r = two_peaks(df, "trading_value", tf)      # ← "Volume"から変更
     if r is None:
         return 0.0, "ピーク不足"
-    pr1, v1, pr2, v2 = r
+    pr1, tv1, pr2, tv2 = r
     if pr2 <= pr1:
         return 0.0, "価格未更新"
-    ratio = v2 / v1 if v1 > 0 else 1.0
+    ratio = tv2 / tv1 if tv1 > 0 else 1.0
     if ratio >= 0.85:
-        return 0.0, "出来高正常 " + str(round(ratio * 100)) + "%"
-    return min(1.0, (0.85 - ratio) / 0.35), "価格↑ 出来高↓ 前回比" + str(round(ratio * 100)) + "%"
+        return 0.0, "売買代金正常 " + str(round(ratio * 100)) + "%"  # ← 表示名変更
+    return min(1.0, (0.85 - ratio) / 0.35), \
+           "価格↑ 売買代金↓ 前回比" + str(round(ratio * 100)) + "%"  # ← 表示名変更
 
 
 def check_ema_dev(df, tf):
