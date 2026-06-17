@@ -24,6 +24,28 @@ WATCHLIST = [
     "5802.T","5801.T","5803.T","5706.T","285A.T","3131.T","7974.T",
 ]
 
+# 銘柄名辞書（コード→表示名）
+TICKER_NAMES = {
+    "6503.T": "三菱電機",
+    "6504.T": "富士電機",
+    "6622.T": "ダイヘン",
+    "6762.T": "TDK",
+    "6976.T": "太陽誘電",
+    "6779.T": "日本電波工業",
+    "5802.T": "住友電工",
+    "5801.T": "古河電工",
+    "5803.T": "フジクラ",
+    "5706.T": "三井金属",
+    "285A.T": "キオクシア",
+    "3131.T": "シンデン・ハイテック",
+    "7974.T": "任天堂",
+    "000660.KS": "SKハイニックス",
+    "005930.KS": "サムスン電子",
+}
+
+def display_name(ticker):
+    return TICKER_NAMES.get(ticker, ticker)
+
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
 
 EMA_DEV_MIN   = 20.0
@@ -297,24 +319,24 @@ def build_summary(results):
     if danger:
         lines.append("**🚨 危険圏 " + str(ALERT_SCORE) + "%以上**")
         for r in sorted(danger, key=lambda x: -x["score"]):
-            lines.append("`" + r["ticker"].ljust(12) + "` " + score_bar(r["score"]))
+            lines.append("`" + display_name(r["ticker"]).ljust(14) + "` " + score_bar(r["score"]))
             lines.append("              " + tf_signals(r["signals"], r) + "  " + tf_coverage(r["status"]))
 
     if caution:
         lines.append("\n**⚠️ 注意圏 " + str(CAUTION_SCORE) + "〜" + str(ALERT_SCORE) + "%**")
         for r in sorted(caution, key=lambda x: -x["score"]):
-            lines.append("`" + r["ticker"].ljust(12) + "` " + score_bar(r["score"]) + "  " + tf_signals(r["signals"], r))
+            lines.append("`" + display_name(r["ticker"]).ljust(14) + "` " + score_bar(r["score"]) + "  " + tf_signals(r["signals"], r))
 
     if watch:
         lines.append("\n**👀 監視圏 10〜" + str(CAUTION_SCORE) + "%**")
         for r in sorted(watch, key=lambda x: -x["score"]):
-            lines.append("`" + r["ticker"].ljust(12) + "` " + score_bar(r["score"]))
+            lines.append("`" + display_name(r["ticker"]).ljust(14) + "` " + score_bar(r["score"]))
 
     lines.append("\n**📊 全銘柄ランキング（上位15）**")
     top15 = sorted(results, key=lambda x: -x["score"])[:15]
     for r in top15:
         price_str = str(round(r["price"], 2))
-        lines.append("`" + r["ticker"].ljust(12) + "` " + score_bar(r["score"]) + "  $" + price_str)
+        lines.append("`" + display_name(r["ticker"]).ljust(14) + "` " + score_bar(r["score"]) + "  $" + price_str)
 
     partial = [r for r in results if any(s != "ok" for s in r["status"].values())]
     if partial:
@@ -352,7 +374,7 @@ def build_detail(r):
         lines.append("")
     return {
         "embeds": [{
-            "title": "🚨 " + r["ticker"] + " 天井詳細",
+            "title": "🚨 " + display_name(r["ticker"]) + " 天井詳細",
             "description": "\n".join(lines)[:4000],
             "color": 0xFF2222,
             "footer": {"text": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
